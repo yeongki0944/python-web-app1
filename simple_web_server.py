@@ -14,10 +14,10 @@ def home():
     <html>
     <head><title>Test Web Server</title></head>
     <body>
-        <h1>🚀 Test Web Server Running!</h1>
+        <h1>Test Web Server</h1>
         <p>서버가 정상적으로 실행중입니다.</p>
         <p><a href="/health">Health Check</a></p>
-        <p><a href="/info">Server Info</a></p>
+        <p><a href="/info">Server Version # 1</a></p>
     </body>
     </html>
     '''
@@ -43,7 +43,6 @@ def info():
         "timestamp": datetime.datetime.now().isoformat(),
         "version": os.environ.get('APP_VERSION', 'v1.0'),
         "environment": os.environ.get('ENV', 'development')
-        #123
     })
 
 
