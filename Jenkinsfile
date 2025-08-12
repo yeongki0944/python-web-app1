@@ -5,7 +5,7 @@ pipeline {
         S3_BUCKET = 'younggi-jenkins-deploy-bucket'
         APP_NAME = 'python-web-app'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
-        TARGET_EC2_IP = '10.0.19.1'
+        TARGET_EC2_IP = '10.0.24.106'
     }
 
     stages {
@@ -50,12 +50,78 @@ pipeline {
                     sh '''
                         chmod 600 $SSH_KEY
 
+                        # 기존 EC2에 배포
                         ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@${TARGET_EC2_IP} "
                             cd /home/ec2-user/python-web-app/script &&
                             ./deploy.sh ${BUILD_VERSION}
                         "
                     '''
                 }
+            }
+        }
+
+        stage('Update Launch Template') {
+            steps {
+                echo 'Creating AMI and updating Launch Template...'
+                sh '''
+                    # 1단계: AMI 생성
+                    INSTANCE_ID="i-0e46fd2a32cfa84ae"
+                    echo "Creating AMI from instance: $INSTANCE_ID"
+
+                    AMI_ID=$(aws ec2 create-image \
+                        --instance-id $INSTANCE_ID \
+                        --name "python-web-app-${BUILD_VERSION}" \
+                        --description "Automated AMI for build ${BUILD_VERSION}" \
+                        --query "ImageId" --output text)
+
+                    echo "Created AMI: $AMI_ID"
+
+                    # 2단계: AMI 생성 완료 대기
+                    echo "Waiting for AMI to be available..."
+                    aws ec2 wait image-available --image-ids $AMI_ID
+
+                    # 3단계: Launch Template 새 버전 생성
+                    echo "Creating new Launch Template version..."
+                    aws ec2 create-launch-template-version \
+                        --launch-template-name python-web-app-lt \
+                        --source-version 1 \
+                        --launch-template-data "{\\"ImageId\\":\\"$AMI_ID\\"}"
+
+                    # 4단계: Default 버전 업데이트
+                    echo "Updating Launch Template default version..."
+                    aws ec2 modify-launch-template \
+                        --launch-template-name python-web-app-lt \
+                        --default-version '$Latest'
+
+                    echo "✅ Launch Template updated with AMI: $AMI_ID"
+                '''
+            }
+        }
+
+        stage('Instance Refresh') {
+            steps {
+                echo 'Starting Instance Refresh...'
+                sh '''
+                    # Instance Refresh 실행
+                    echo "Starting Instance Refresh for ASG..."
+                    REFRESH_ID=$(aws autoscaling start-instance-refresh \
+                        --auto-scaling-group-name python-web-app-asg \
+                        --preferences '{"InstanceWarmup": 120, "MinHealthyPercentage": 50}' \
+                        --query "InstanceRefreshId" --output text)
+
+                    echo "✅ Instance Refresh started: $REFRESH_ID"
+                    echo "📋 Monitor progress in AWS Console: EC2 → Auto Scaling Groups → python-web-app-asg → Instance refresh"
+
+                    # 초기 상태만 확인하고 백그라운드 실행
+                    sleep 30
+                    STATUS=$(aws autoscaling describe-instance-refreshes \
+                        --auto-scaling-group-name python-web-app-asg \
+                        --instance-refresh-ids $REFRESH_ID \
+                        --query "InstanceRefreshes[0].Status" --output text)
+
+                    echo "Instance Refresh Status: $STATUS"
+                    echo "🎯 Instance Refresh is running in background"
+                '''
             }
         }
     }
