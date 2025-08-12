@@ -43,6 +43,7 @@ def info():
         "timestamp": datetime.datetime.now().isoformat(),
         "version": os.environ.get('APP_VERSION', 'v1.0'),
         "environment": os.environ.get('ENV', 'development')
+        #123
     })
 
 
