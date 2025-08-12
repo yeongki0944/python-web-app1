@@ -1,14 +1,11 @@
 pipeline {
     agent any
 
-    parameters {
-        string(name: 'TARGET_EC2_IP', defaultValue: '10.0.19.1', description: '배포할 EC2 서버 IP (예: 10.0.19.1)')
-    }
-
     environment {
         S3_BUCKET = 'younggi-jenkins-deploy-bucket'
         APP_NAME = 'python-web-app'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
+        TARGET_EC2_IP = '10.0.19.1'
     }
 
     stages {
@@ -80,13 +77,7 @@ pipeline {
         success {
             echo '🎉 Pipeline completed successfully!'
             echo "📦 Artifact: s3://${S3_BUCKET}/artifacts/${APP_NAME}-${BUILD_VERSION}.tar.gz"
-            script {
-                if (params.TARGET_EC2_IP?.trim()) {
-                    echo "🚀 Deployed to EC2: ${params.TARGET_EC2_IP}"
-                } else {
-                    echo "ℹ️ EC2 deployment skipped (no IP provided)"
-                }
-            }
+            echo "🚀 Deployed to EC2: ${TARGET_EC2_IP}"
         }
         failure {
             echo '❌ Pipeline failed!'
