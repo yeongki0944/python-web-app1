@@ -61,27 +61,16 @@ pipeline {
             steps {
                 echo "Deploying to EC2: ${params.TARGET_EC2_IP}"
                 withCredentials([file(credentialsId: 'ec2-user', variable: 'SSH_KEY')]) {
-                    sh '''
+                    sh """
                         # SSH 키 권한 설정
-                        chmod 600 $SSH_KEY
+                        chmod 600 \$SSH_KEY
 
-                        # 배포 디렉토리 준비
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@${TARGET_EC2_IP} "
-                            mkdir -p /home/ec2-user/python-web-app/script &&
-                            mkdir -p /home/ec2-user/python-web-app/app
-                        "
-
-                        # 배포 실행
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@${TARGET_EC2_IP} "
-                            sudo chown -R ec2-user:ec2-user /home/ec2-user/python-web-app/ &&
-                            chmod -R 755 /home/ec2-user/python-web-app/ &&
+                        # 배포 실행 (deploy.sh는 이미 타겟 EC2에 존재)
+                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no ec2-user@${params.TARGET_EC2_IP} "
                             cd /home/ec2-user/python-web-app/script &&
-                            chmod +x deploy.sh &&
-                            echo 'Jenkins Build Number: ${BUILD_VERSION}' &&
-                            echo 'Target EC2: ${TARGET_EC2_IP}' &&
-                            ./deploy.sh ${BUILD_VERSION}
+                            ./deploy.sh ${env.BUILD_NUMBER}
                         "
-                    '''
+                    """
                 }
             }
         }
