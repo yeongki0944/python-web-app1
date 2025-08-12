@@ -51,7 +51,6 @@ def version():
     return jsonify({
         "version": os.environ.get('APP_VERSION', 'v1.0'),
         "build_time": os.environ.get('BUILD_TIME', 'unknown')
-        # git
     })
 
 
