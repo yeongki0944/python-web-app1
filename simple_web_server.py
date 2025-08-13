@@ -15,43 +15,11 @@ def home():
     <head><title>Test Web Server</title></head>
     <body>
         <h1>Test Web Server</h1>
-        <p>서버가 정상적으로 실행중입니다.</p>
-        <p><a href="/health">Health Check</a></p>
-        <p><a href="/info">Server Version # ECS - 3</a></p>
+        <h1>Version : ECS 5</h1>
     </body>
     </html>
     '''
 
-
-@app.route('/health')
-def health():
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "message": "서버가 정상 작동중입니다"
-    })
-
-
-@app.route('/info')
-def info():
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-
-    return jsonify({
-        "hostname": hostname,
-        "local_ip": local_ip,
-        "timestamp": datetime.datetime.now().isoformat(),
-        "version": os.environ.get('APP_VERSION', 'v1.0'),
-        "environment": os.environ.get('ENV', 'development')
-    })
-
-
-@app.route('/version')
-def version():
-    return jsonify({
-        "version": os.environ.get('APP_VERSION', 'v1.0'),
-        "build_time": os.environ.get('BUILD_TIME', 'unknown')
-    })
 
 
 if __name__ == '__main__':
