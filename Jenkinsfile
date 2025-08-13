@@ -7,6 +7,7 @@ pipeline {
         BUILD_VERSION = "${env.BUILD_NUMBER}"                // 자동 생성
         TARGET_EC2_IP = '10.0.28.227'                       // 배포 대상 IP
         TARGET_INSTANCE_ID = 'i-0f6ca754ac4aef668'          // AMI 생성 대상
+        LT_SOURCE_VERSION = '3'
     }
 
     stages {
@@ -84,7 +85,7 @@ pipeline {
                     echo "Creating new Launch Template version..."
                     aws ec2 create-launch-template-version \
                         --launch-template-name python-web-app-lt \
-                        --source-version 1 \
+                        --source-version ${LT_SOURCE_VERSION} \
                         --launch-template-data "{\\"ImageId\\":\\"$AMI_ID\\"}"
 
                     # 4단계: Default 버전 업데이트
