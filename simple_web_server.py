@@ -17,7 +17,7 @@ def home():
         <h1>Test Web Server</h1>
         <p>서버가 정상적으로 실행중입니다.</p>
         <p><a href="/health">Health Check</a></p>
-        <p><a href="/info">Server Version # 2</a></p>
+        <p><a href="/info">Server Version # 12</a></p>
     </body>
     </html>
     '''
