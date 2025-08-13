@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        S3_BUCKET = 'younggi-jenkins-deploy-bucket'
-        APP_NAME = 'python-web-app'
-        BUILD_VERSION = "${env.BUILD_NUMBER}"
-        TARGET_EC2_IP = '10.0.28.227'
+        S3_BUCKET = 'younggi-jenkins-deploy-bucket'           // S3 버킷
+        APP_NAME = 'python-web-app'                          // 앱 이름
+        BUILD_VERSION = "${env.BUILD_NUMBER}"                // 자동 생성
+        TARGET_EC2_IP = '10.0.28.227'                       // 배포 대상 IP
+        TARGET_INSTANCE_ID = 'i-0f6ca754ac4aef668'          // AMI 생성 대상
     }
 
     stages {
@@ -65,8 +66,7 @@ pipeline {
                 echo 'Creating AMI and updating Launch Template...'
                 sh '''
                     # 1단계: AMI 생성
-                    INSTANCE_ID="i-0e46fd2a32cfa84ae"
-                    echo "Creating AMI from instance: $INSTANCE_ID"
+                    echo "Creating AMI from instance: ${TARGET_INSTANCE_ID}"
 
                     AMI_ID=$(aws ec2 create-image \
                         --instance-id $INSTANCE_ID \
