@@ -42,7 +42,6 @@ pipeline {
                 sh '''
                     docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                     docker tag ${ECR_REPOSITORY}:latest ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
-
                     docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                     docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
                 '''
@@ -51,144 +50,45 @@ pipeline {
 
         stage('Update ECS Task Definition') {
             steps {
-                echo 'Updating ECS Task Definition with new image...'
                 sh '''
-                    # 현재 Task Definition 가져오기
-                    CURRENT_TASK_DEF=$(aws ecs describe-task-definition \
+                    aws ecs describe-task-definition \
                         --task-definition ${ECS_TASK_FAMILY} \
                         --region ${AWS_REGION} \
-                        --query 'taskDefinition' --output json)
+                        --query 'taskDefinition' \
+                        --output json > current_task_def.json
 
-                    # 새 이미지로 Task Definition 업데이트
-                    NEW_TASK_DEF=$(echo $CURRENT_TASK_DEF | jq --arg IMAGE "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
-                        '.containerDefinitions[0].image = $IMAGE' | \
-                        jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)')
+                    jq --arg IMAGE "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
+                        '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+                        current_task_def.json > new_task_def.json
 
-                    # 새 Task Definition 등록
-                    NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEF | aws ecs register-task-definition \
+                    aws ecs register-task-definition \
                         --region ${AWS_REGION} \
-                        --cli-input-json file:///dev/stdin \
-                        --query 'taskDefinition.taskDefinitionArn' --output text)
-
-                    echo "✅ New Task Definition registered: $NEW_TASK_DEF_ARN"
-                    echo "📦 Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        --cli-input-json file://new_task_def.json
                 '''
             }
         }
 
         stage('Deploy to ECS') {
             steps {
-                echo 'Deploying to ECS Service...'
                 sh '''
-                    # ECS Service 업데이트 (새 Task Definition으로 배포)
-                    echo "Updating ECS Service: ${ECS_SERVICE} in cluster: ${ECS_CLUSTER}"
-
-                    UPDATE_RESULT=$(aws ecs update-service \
+                    aws ecs update-service \
                         --cluster ${ECS_CLUSTER} \
                         --service ${ECS_SERVICE} \
                         --task-definition ${ECS_TASK_FAMILY} \
-                        --region ${AWS_REGION} \
-                        --query 'service.{ServiceName:serviceName,TaskDefinition:taskDefinition,DesiredCount:desiredCount}' \
-                        --output json)
-
-                    echo "✅ ECS Service update initiated"
-                    echo "📋 Update details: $UPDATE_RESULT"
-
-                    # 배포 상태 확인 (2분 대기)
-                    echo "⏳ Monitoring deployment progress..."
-                    sleep 120
-
-                    # 서비스 상태 확인
-                    SERVICE_STATUS=$(aws ecs describe-services \
-                        --cluster ${ECS_CLUSTER} \
-                        --services ${ECS_SERVICE} \
-                        --region ${AWS_REGION} \
-                        --query 'services[0].{Status:status,RunningCount:runningCount,DesiredCount:desiredCount,DeploymentStatus:deployments[0].status}' \
-                        --output json)
-
-                    echo "📊 Current service status: $SERVICE_STATUS"
-
-                    RUNNING_COUNT=$(echo $SERVICE_STATUS | jq -r '.RunningCount')
-                    DESIRED_COUNT=$(echo $SERVICE_STATUS | jq -r '.DesiredCount')
-                    DEPLOYMENT_STATUS=$(echo $SERVICE_STATUS | jq -r '.DeploymentStatus')
-
-                    echo "Running tasks: $RUNNING_COUNT / $DESIRED_COUNT"
-                    echo "Deployment status: $DEPLOYMENT_STATUS"
-
-                    if [ "$DEPLOYMENT_STATUS" = "PRIMARY" ] && [ "$RUNNING_COUNT" = "$DESIRED_COUNT" ]; then
-                        echo "✅ Deployment completed successfully"
-                    else
-                        echo "⚠️ Deployment is still in progress"
-                        echo "📋 Monitor in AWS Console: ECS → Clusters → ${ECS_CLUSTER} → Services → ${ECS_SERVICE}"
-                    fi
+                        --region ${AWS_REGION}
                 '''
             }
         }
     }
 
     post {
-        success {
-            echo '🎉 ECS Pipeline completed successfully!'
-            echo "🐳 Docker Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-            echo "🚀 ECS Cluster: ${ECS_CLUSTER}"
-            echo "📦 ECS Service: ${ECS_SERVICE}"
-            echo "📋 Task Definition: ${ECS_TASK_FAMILY}"
-            sh '''
-                # 배포된 Task 정보 출력
-                echo "🔍 Current running tasks:"
-                aws ecs list-tasks \
-                    --cluster ${ECS_CLUSTER} \
-                    --service-name ${ECS_SERVICE} \
-                    --region ${AWS_REGION} \
-                    --desired-status RUNNING \
-                    --query 'taskArns' --output table
-
-                # Task 상세 정보 (Public IP 등)
-                TASK_ARNS=$(aws ecs list-tasks \
-                    --cluster ${ECS_CLUSTER} \
-                    --service-name ${ECS_SERVICE} \
-                    --region ${AWS_REGION} \
-                    --desired-status RUNNING \
-                    --query 'taskArns[0]' --output text)
-
-                if [ "$TASK_ARNS" != "None" ] && [ "$TASK_ARNS" != "" ]; then
-                    echo "📍 Task details:"
-                    aws ecs describe-tasks \
-                        --cluster ${ECS_CLUSTER} \
-                        --tasks $TASK_ARNS \
-                        --region ${AWS_REGION} \
-                        --query 'tasks[0].{TaskArn:taskArn,LastStatus:lastStatus,HealthStatus:healthStatus}' \
-                        --output table
-                fi
-            '''
-        }
-        failure {
-            echo '❌ Pipeline failed!'
-            sh '''
-                # 실패 시 디버깅 정보 출력
-                echo "🔍 ECS Service status:"
-                aws ecs describe-services \
-                    --cluster ${ECS_CLUSTER} \
-                    --services ${ECS_SERVICE} \
-                    --region ${AWS_REGION} \
-                    --query 'services[0].{Status:status,RunningCount:runningCount,PendingCount:pendingCount}' \
-                    --output table 2>/dev/null || echo "Failed to get service status"
-
-                echo "📋 Recent service events:"
-                aws ecs describe-services \
-                    --cluster ${ECS_CLUSTER} \
-                    --services ${ECS_SERVICE} \
-                    --region ${AWS_REGION} \
-                    --query 'services[0].events[:3]' \
-                    --output table 2>/dev/null || echo "Failed to get service events"
-            '''
-        }
         cleanup {
             sh '''
                 docker rmi ${ECR_REPOSITORY}:${IMAGE_TAG} || true
                 docker rmi ${ECR_REPOSITORY}:latest || true
                 docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} || true
                 docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest || true
+                rm -f current_task_def.json new_task_def.json || true
             '''
         }
     }
