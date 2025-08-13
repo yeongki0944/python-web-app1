@@ -5,7 +5,7 @@ pipeline {
         S3_BUCKET = 'younggi-jenkins-deploy-bucket'
         APP_NAME = 'python-web-app'
         BUILD_VERSION = "${env.BUILD_NUMBER}"
-        TARGET_EC2_IP = '10.0.24.106'
+        TARGET_EC2_IP = '10.0.28.227'
     }
 
     stages {
