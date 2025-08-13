@@ -69,7 +69,7 @@ pipeline {
                     echo "Creating AMI from instance: ${TARGET_INSTANCE_ID}"
 
                     AMI_ID=$(aws ec2 create-image \
-                        --instance-id $INSTANCE_ID \
+                        --instance-id ${TARGET_INSTANCE_ID} \
                         --name "python-web-app-${BUILD_VERSION}" \
                         --description "Automated AMI for build ${BUILD_VERSION}" \
                         --query "ImageId" --output text)
