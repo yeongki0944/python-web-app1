@@ -6,7 +6,7 @@ pipeline {
         APP_NAME = 'python-web-app'                          // 앱 이름
         BUILD_VERSION = "${env.BUILD_NUMBER}"                // 자동 생성
         TARGET_EC2_IP = '10.0.28.242'                       // 배포 대상 IP
-        TARGET_INSTANCE_ID = 'i-0f6ca754ac4aef668'          // AMI 생성 대상
+        TARGET_INSTANCE_ID = 'i-0ebab50ecef32bc41'          // AMI 생성 대상
     }
 
     stages {
