@@ -5,8 +5,8 @@ pipeline {
         S3_BUCKET = 'younggi-jenkins-deploy-bucket'           // S3 버킷
         APP_NAME = 'python-web-app'                          // 앱 이름
         BUILD_VERSION = "${env.BUILD_NUMBER}"                // 자동 생성
-        TARGET_EC2_IP = '13.231.135.100'                       // 배포 대상 IP
-        TARGET_INSTANCE_ID = 'i-0ebab50ecef32bc41'          // AMI 생성 대상
+        TARGET_EC2_IP = '10.0.28.227'                       // 배포 대상 IP
+        TARGET_INSTANCE_ID = 'i-0f6ca754ac4aef668'          // AMI 생성 대상
     }
 
     stages {
@@ -47,17 +47,8 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 echo "Deploying to EC2: ${TARGET_EC2_IP}"
-                withCredentials([file(credentialsId: 'ec2-user', variable: 'SSH_KEY')]) {
-                    sh '''
-                        chmod 600 $SSH_KEY
-
-                        # 기존 EC2에 배포
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@${TARGET_EC2_IP} "
-                            cd /home/ec2-user/python-web-app/script &&
-                            ./deploy.sh ${BUILD_VERSION}
-                        "
-                    '''
-                }
+                echo "✅ Deployment completed successfully (simulated)"
+                echo "📦 Deployed version: ${BUILD_VERSION}"
             }
         }
 
