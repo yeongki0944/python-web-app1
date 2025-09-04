@@ -5,9 +5,8 @@ pipeline {
         S3_BUCKET = 'younggi-jenkins-deploy-bucket'           // S3 버킷
         APP_NAME = 'python-web-app'                          // 앱 이름
         BUILD_VERSION = "${env.BUILD_NUMBER}"                // 자동 생성
-        TARGET_EC2_IP = '10.0.28.227'                       // 배포 대상 IP
-        TARGET_INSTANCE_ID = 'i-0f6ca754ac4aef668'          // AMI 생성 대상
-        LT_SOURCE_VERSION = '3'
+        TARGET_EC2_IP = '10.0.28.242'                       // 배포 대상 IP
+        TARGET_INSTANCE_ID = 'i-0ebab50ecef32bc41'          // AMI 생성 대상
     }
 
     stages {
@@ -66,6 +65,14 @@ pipeline {
             steps {
                 echo 'Creating AMI and updating Launch Template...'
                 sh '''
+                    # 최신 LT 버전 가져오기
+                    LATEST_LT_VERSION=$(aws ec2 describe-launch-template-versions \
+                        --launch-template-name python-web-app-lt \
+                        --query 'max_by(LaunchTemplateVersions, &VersionNumber).VersionNumber' \
+                        --output text)
+
+                    echo "Using Latest Launch Template Version: $LATEST_LT_VERSION"
+
                     # 1단계: AMI 생성
                     echo "Creating AMI from instance: ${TARGET_INSTANCE_ID}"
 
@@ -81,11 +88,11 @@ pipeline {
                     echo "Waiting for AMI to be available..."
                     aws ec2 wait image-available --image-ids $AMI_ID
 
-                    # 3단계: Launch Template 새 버전 생성
+                    # 3단계: Launch Template 새 버전 생성 (최신 버전 기준)
                     echo "Creating new Launch Template version..."
                     aws ec2 create-launch-template-version \
                         --launch-template-name python-web-app-lt \
-                        --source-version ${LT_SOURCE_VERSION} \
+                        --source-version $LATEST_LT_VERSION \
                         --launch-template-data "{\\"ImageId\\":\\"$AMI_ID\\"}"
 
                     # 4단계: Default 버전 업데이트
@@ -137,7 +144,3 @@ pipeline {
             echo '❌ Pipeline failed!'
         }
         cleanup {
-            sh 'rm -f *.tar.gz'
-        }
-    }
-}
